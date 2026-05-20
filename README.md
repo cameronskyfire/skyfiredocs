@@ -34,3 +34,4 @@ of the file. To change it:
 Client-side password protection is a deterrent, not real security. The
 template and password check live in the HTML served to the browser. For
 proper access control, this would need a real backend.
+
