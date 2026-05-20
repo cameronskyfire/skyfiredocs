@@ -326,6 +326,14 @@
     gap: 22px 28px;
   }
   .sig-grid .field.full { grid-column: 1 / -1; }
+  .sig-note {
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px dashed var(--line);
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
   .btn {
     background: var(--ink);
     color: var(--paper);
@@ -802,8 +810,15 @@
     { id: 'email',  label: 'Email',                 type: 'email', full: false },
     { id: 'phone',  label: 'Phone Number',          type: 'text',  full: false }
   ];
+  // Signature line that DocuSign will overlay with the actual e-signature
+  const SIGNATURE_LINE = '______________________________';
+
   function isSignatureBlock(key) {
     return /signature\s*block/i.test(key);
+  }
+  // Signature dates are left blank so DocuSign records the actual signing date
+  function isSignatureDate(key) {
+    return /date\s+of\s+\S.*signature/i.test(key) || /signature\s+date/i.test(key);
   }
 
   // -------- Field labeling --------
@@ -866,6 +881,9 @@
     }
 
     const fieldsHtml = data.placeholders.map(key => {
+      // Signature date: leave blank in output, don't render a form field
+      if (isSignatureDate(key)) return '';
+
       // Signature block: expand into five sub-fields
       if (isSignatureBlock(key)) {
         const baseId = fieldId(key);
@@ -879,6 +897,7 @@
           <div class="field full sig-group">
             <div class="sig-group-label">${escapeHtml(labelFor(key))}</div>
             <div class="sig-grid">${subFields}</div>
+            <div class="sig-note">A signature line and blank date will be added automatically for DocuSign.</div>
           </div>`;
       }
 
@@ -949,8 +968,12 @@
     for (const key of data.placeholders) {
       let v = '';
 
-      if (isSignatureBlock(key)) {
-        // Assemble signature block from sub-fields, omitting empty lines.
+      if (isSignatureDate(key)) {
+        // Leave signature dates blank; DocuSign records the actual signing date.
+        v = '';
+      } else if (isSignatureBlock(key)) {
+        // Assemble signature block from sub-fields, omitting empty typed lines.
+        // Prepend a signature line so DocuSign has a visual line to overlay on.
         const baseId = fieldId(key);
         const lines = SIGNATURE_SUBFIELDS
           .map(sf => {
@@ -958,7 +981,7 @@
             return el ? el.value.trim() : '';
           })
           .filter(line => line.length > 0);
-        v = lines.join('\n');
+        v = [SIGNATURE_LINE, ...lines].join('\n');
         if (/employee/i.test(key) && lines[0]) nameForFile = lines[0];
       } else {
         const el = document.getElementById(fieldId(key));
